@@ -84,10 +84,10 @@ log_file = "dev.log"
 # # Words whitelist.
 # # Bot will repost posts only containing words in whitelist.
 # # Useful for hashtags.
-# WHITELIST = []
+WHITELIST = []
 # # Words blacklist.
 # # If post contains a blacklisted word, the post will be skipped.
-# BLACKLIST = []
+BLACKLIST = []
 # # for example:
 # # WHITELIST = ["#music", "new"]
 # # BLACKLIST = ["rap", "dubstep"]
