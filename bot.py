@@ -9,11 +9,14 @@ import urllib
 import config
 import logging
 import requests
+import threading
+import queue
 import eventlet
 from telebot import TeleBot, types, apihelper
 from logging.handlers import TimedRotatingFileHandler
 
 bot = TeleBot(config.tg_bot_token)
+send_queue = queue.Queue()
 
 if len(str(config.tg_log_channel)) > 5:
     if config.tg_bot_for_log_token != "":
@@ -69,7 +72,7 @@ def parse_posts(items, last_id, domain):
         * Сhecks post id to make sure it is larger than the one written in the last_known_id.txt
         * Parses all attachments of post or repost
         * Calls 'compile_links_and_text()' to compile links to videos and other links from post to post text
-        * Calls 'send_posts()' to send post to Telegram channel (config.tg_channel)
+        * Calls 'add_to_queue()' to add posts in send queue
 
     Args:
         items (list): List of posts received from VK
@@ -277,7 +280,7 @@ def parse_posts(items, last_id, domain):
                 text_of_post = f"""{text_of_post}\n\nREPOST ↓ {group_name}\n\n <a href="vk.com/{domain}">{get_public_name_by_id(
                     abs(item["owner_id"])
                 )}</a>"""
-            send_posts(item["id"], text_of_post, photo_url_list, docs_list)
+            add_to_queue(item["id"], text_of_post, photo_url_list, docs_list)
 
             if "copy_history" in item:
                 item_repost = item["copy_history"][0]
@@ -309,7 +312,7 @@ def parse_posts(items, last_id, domain):
                     link_to_reposted_post,
                     group_name,
                 )
-                send_posts(
+                add_to_queue(
                     item["id"],
                     text_of_post_rep,
                     photo_url_list_rep,
@@ -322,15 +325,20 @@ def parse_posts(items, last_id, domain):
             )
 
 
-def send_posts(postid, text_of_post, photo_url_list, docs_list):
+def send_posts(post_data):
     """Checks the type of post and sends it to Telegram in a suitable method
 
-    Args:
+    Args in obj post_data:
         postid (integer): Id of the post that is sent to Telegram. Used for better logging
         text_of_post (string): Post text with links to videos and other links from post attachments
         photo_url_list (list): Photo URL list
         docs_list (list): List of urls to docs
     """
+
+    postid = post_data["postid"]
+    text_of_post = post_data["text_of_post"]
+    photo_url_list = post_data["photo_url_list"]
+    docs_list = post_data["docs_list"]
 
     def start_sending():
         try:
@@ -560,7 +568,8 @@ def check_new_post():
                     with open(f"last_known_id_{domain}.txt", "w") as file:
                         file.write(str(new_last_id))
                     add_log(
-                        "i", f"New last id of vk post is {new_last_id} domain {domain}"
+                        "i",
+                        f"New last id of vk post is {new_last_id} domain {domain}",
                     )
                 else:
                     add_log("i", f"Last id remains {new_last_id} domain {domain}")
@@ -725,6 +734,46 @@ def generate_last_known_ids():
             file.write("0")
 
 
+def add_to_queue(postid, text_of_post, photo_url_list, docs_list):
+    """Add post data into send queue"""
+    send_queue.put(
+        {
+            "postid": postid,
+            "text_of_post": text_of_post,
+            "photo_url_list": photo_url_list,
+            "docs_list": docs_list,
+        }
+    )
+
+
+def send_loop():
+    """Send each post from queue after 30 seconds, to bypass possible limits in Telegram API"""
+    while True:
+        if send_queue.qsize() > 0:
+            add_log(
+                "i",
+                f"{send_queue.qsize()} items will be sent",
+            )
+            send_posts(send_queue.get())
+        else:
+            add_log(
+                "i",
+                f"Send queue is empty now",
+            )
+        time.sleep(int(config.send_delay))
+
+
+def check_loop():
+    """Check new posts with check_new_post()"""
+    while True:
+        check_new_post()
+        add_log(
+            "i",
+            f"Script went to sleep for {config.time_to_sleep} seconds",
+        )
+        time.sleep(int(config.time_to_sleep))
+
+
 if __name__ == "__main__":
     check_python_version()
 
@@ -753,14 +802,13 @@ if __name__ == "__main__":
     logger.addHandler(stream_handler)
     logger.addHandler(tr_file_handler)
 
-    if not config.single_start:
-        while True:
-            check_new_post()
-            add_log(
-                "i",
-                f"Script went to sleep for {config.time_to_sleep} seconds\n\n",
-            )
-            time.sleep(int(config.time_to_sleep))
-    else:
-        check_new_post()
-        add_log("i", "Script exited.")
+    check_thread = threading.Thread(target=check_loop)
+    check_thread.daemon = True
+    check_thread.start()
+
+    send_thread = threading.Thread(target=send_loop)
+    send_thread.daemon = True
+    send_thread.start()
+
+    while True:
+        time.sleep(5)

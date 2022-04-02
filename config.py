@@ -48,12 +48,16 @@ req_count = 3
 # "suggests" — suggested posts on a community wall
 req_filter = "owner"
 
-# If True bot will stop after first pass through the loop.
-single_start = False
-
 # Waiting time between cycle passes.
 # (in seconds)
 time_to_sleep = 60 * 2
+
+# Waiting time between sending items
+# to bypass Telegram API limits
+# The more channels you repost,
+# the more delay you should set.
+# (in seconds)
+send_delay = 30
 
 # Do not touch
 # Bot will specify this variable itself
