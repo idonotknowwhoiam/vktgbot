@@ -41,17 +41,22 @@ def get_data():
     """
     timeout = eventlet.Timeout(20)
     try:
-        data = requests.get(
-            "https://api.vk.com/method/wall.get",
-            params={
-                "access_token": config.vk_token,
-                "v": config.req_version,
-                "domain": config.vk_domain,
-                "filter": config.req_filter,
-                "count": config.req_count,
-            },
-        )
-        return data.json()["response"]["items"]
+        collected_data = []
+        for domain in config.vk_domain:
+            data = requests.get(
+                "https://api.vk.com/method/wall.get",
+                params={
+                    "access_token": config.vk_token,
+                    "v": config.req_version,
+                    "domain": domain,
+                    "filter": config.req_filter,
+                    "count": config.req_count,
+                },
+            )
+            collected_data.append(
+                {"domain": domain, "data": data.json()["response"]["items"]}
+            )
+        return collected_data
     except eventlet.timeout.Timeout:
         add_log("w", "Got Timeout while retrieving VK JSON data. Cancelling...")
         return None
@@ -59,7 +64,7 @@ def get_data():
         timeout.cancel()
 
 
-def parse_posts(items, last_id):
+def parse_posts(items, last_id, domain):
     """For each post in the received posts list:
         * Сhecks post id to make sure it is larger than the one written in the last_known_id.txt
         * Parses all attachments of post or repost
@@ -95,7 +100,9 @@ def parse_posts(items, last_id):
                 f"[id:{item['id']}] Post was skipped because it has copyright",
             )
             continue
-        add_log("i", f"[id:{item['id']}] Bot is working with this post")
+        add_log(
+            "i", f"[id:{item['id']}] Bot is working with this post. Domain {domain}"
+        )
 
         prepare_temp_folder()
 
@@ -256,7 +263,9 @@ def parse_posts(items, last_id):
                 )
             text_of_post = compile_links_and_text(
                 item["id"],
-                text_of_post,
+                f"""{text_of_post}\n\n<a href="vk.com/{domain}">{get_public_name_by_id(
+                    abs(item["owner_id"])
+                )}</a>""",
                 links_list,
                 videos_list,
                 "post",
@@ -265,7 +274,9 @@ def parse_posts(items, last_id):
                 group_name = get_public_name_by_id(
                     abs(item["copy_history"][0]["owner_id"])
                 )
-                text_of_post = f"""{text_of_post}\n\nREPOST ↓ {group_name}"""
+                text_of_post = f"""{text_of_post}\n\nREPOST ↓ {group_name}\n\n <a href="vk.com/{domain}">{get_public_name_by_id(
+                    abs(item["owner_id"])
+                )}</a>"""
             send_posts(item["id"], text_of_post, photo_url_list, docs_list)
 
             if "copy_history" in item:
@@ -358,9 +369,7 @@ def send_posts(postid, text_of_post, photo_url_list, docs_list):
                     )
 
                     for part in prepared_text_parts:
-                        bot.send_message(
-                            config.tg_channel, part, parse_mode="HTML"
-                        )
+                        bot.send_message(config.tg_channel, part, parse_mode="HTML")
                         time.sleep(0.5)
                 add_log("i", f"[id:{postid}] Text post sent")
             else:
@@ -514,31 +523,47 @@ def check_new_post():
     if not check_admin_status(bot, config.tg_channel):
         pass
     add_log("i", "Scanning for new posts")
-    with open("last_known_id.txt", "r") as file:
-        last_id = int(file.read())
-        if last_id is None:
-            add_log("e", "Could not read from storage. Skipped iteration")
-            return
-        add_log("i", f"Last id of vk post is {last_id}")
     try:
-        feed = get_data()
-        if feed is not None:
-            if "is_pinned" in feed[0]:
-                add_log("i", f"Got some posts [id:{feed[-1]['id']}-{feed[1]['id']}]")
-                config._is_pinned_post = True
-                parse_posts(feed[1:], last_id)
-                new_last_id = feed[1]["id"]
-            else:
-                add_log("i", f"Got some posts [id:{feed[-1]['id']}-{feed[0]['id']}]")
-                config._is_pinned_post = False
-                parse_posts(feed, last_id)
-                new_last_id = feed[0]["id"]
-            if new_last_id > last_id:
-                with open("last_known_id.txt", "w") as file:
-                    file.write(str(new_last_id))
-                add_log("i", f"New last id of vk post is {new_last_id}")
-            else:
-                add_log("i", f"Last id remains {new_last_id}")
+        collected_data = get_data()
+        if collected_data[0]["data"] is not None:
+            for item in collected_data:
+                data = item["data"]
+                domain = item["domain"]
+
+                with open(f"last_known_id_{domain}.txt", "r") as file:
+                    last_id = int(file.read())
+                    if last_id is None:
+                        add_log(
+                            "e",
+                            f"Could not read from storage of {domain}. Skipped iteration",
+                        )
+                        return
+                    add_log("i", f"Last id of vk post of domain {domain} is {last_id}")
+
+                if "is_pinned" in data[0]:
+                    add_log(
+                        "i",
+                        f"Got some posts [id:{data[-1]['id']}-{data[1]['id']}] domain {domain}",
+                    )
+                    config._is_pinned_post = True
+                    parse_posts(data[1:], last_id, domain)
+                    new_last_id = data[1]["id"]
+                else:
+                    add_log(
+                        "i",
+                        f"Got some posts [id:{data[-1]['id']}-{data[0]['id']}] domain {domain}",
+                    )
+                    config._is_pinned_post = False
+                    parse_posts(data, last_id, domain)
+                    new_last_id = data[0]["id"]
+                if new_last_id > last_id:
+                    with open(f"last_known_id_{domain}.txt", "w") as file:
+                        file.write(str(new_last_id))
+                    add_log(
+                        "i", f"New last id of vk post is {new_last_id} domain {domain}"
+                    )
+                else:
+                    add_log("i", f"Last id remains {new_last_id} domain {domain}")
     except Exception as ex:
         add_log("e", f"[{type(ex).__name__}] in check_new_post(): {str(ex)}")
     add_log("i", "Scanning finished")
@@ -691,11 +716,21 @@ def check_python_version():
         exit()
 
 
+def generate_last_known_ids():
+    """Generates last known id for vk posts"""
+    for domain in config.vk_domain:
+        if os.path.exists(f"last_known_id_{domain}.txt"):
+            continue
+        with open(f"last_known_id_{domain}.txt", "w") as file:
+            file.write("0")
+
+
 if __name__ == "__main__":
     check_python_version()
 
     if not os.path.exists(f"./{config.log_folder}"):
         os.makedirs(f"./{config.log_folder}")
+    generate_last_known_ids()
 
     logger = logging.getLogger(__name__)
     logger.setLevel(logging.INFO)

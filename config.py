@@ -17,8 +17,9 @@ vk_token = "00a0a0ab00f0a0ab00f0a6ab0c00000b0f000f000f0a0ab0a00b000000dd00000000
 # Part of the link (after vk.com/) to the VK channel
 # for example:
 # if link is vk.com/>>>example<<<
-# vk_domain = "example"
-vk_domain = "bbbb"
+# vk_domain = ["example"]
+# you can provide 1 or more links separated by commas
+vk_domain = ["aaaa", "bbbb"]
 
 # Link to another Telegram channel if you want to receive bot log messages.
 # You can use the same bot as for the main task.
@@ -63,20 +64,6 @@ skip_ads_posts = True
 # Set True if you want to skip posts with specified Copyright
 skip_copyrighted_post = False
 
-# Words whitelist.
-# Bot will repost posts only containing words in whitelist.
-# Useful for hashtags.
-WHITELIST = []
-# Words blacklist.
-# If post contains a blacklisted word, the post will be skipped.
-BLACKLIST = []
-# for example:
-# WHITELIST = ["#music", "new"]
-# BLACKLIST = ["rap", "dubstep"]
-# This configuration will keep posts only with music hashtag
-# and word "new" excluding posts with words "rap" and "dubstep".
-
-
 # Set True if Telegram is not available in your country
 proxy_enable = False
 # Login for Socks5 proxy
@@ -92,3 +79,17 @@ proxy_port = "1234"
 log_folder = "logs"
 # Log file name
 log_file = "dev.log"
+
+# WILL NOT WORK PROPERLY IN THIS FORK
+# # Words whitelist.
+# # Bot will repost posts only containing words in whitelist.
+# # Useful for hashtags.
+# WHITELIST = []
+# # Words blacklist.
+# # If post contains a blacklisted word, the post will be skipped.
+# BLACKLIST = []
+# # for example:
+# # WHITELIST = ["#music", "new"]
+# # BLACKLIST = ["rap", "dubstep"]
+# # This configuration will keep posts only with music hashtag
+# # and word "new" excluding posts with words "rap" and "dubstep".
