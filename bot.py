@@ -3,6 +3,7 @@
 
 import os
 import re
+import subprocess
 import yaml
 import sys
 import time
@@ -14,10 +15,12 @@ import queue
 import eventlet
 from telebot import TeleBot, types, apihelper
 from logging.handlers import TimedRotatingFileHandler
+
 from admin import run as admin_run
 
 with open("config.yaml") as f:
     config = yaml.load(f, Loader=yaml.FullLoader)
+
 
 bot = TeleBot(config["tg_bot_token"])
 send_queue = queue.Queue()
@@ -815,10 +818,11 @@ if __name__ == "__main__":
     send_thread = threading.Thread(target=send_loop)
     send_thread.daemon = True
     send_thread.start()
-    admin_run()
+
+    exec(open("admin.py").read())
 
     while True:
         with open("config.yaml") as f:
             config = yaml.load(f, Loader=yaml.FullLoader)
         generate_last_known_ids()
-        time.sleep(5)
+        time.sleep(3)
