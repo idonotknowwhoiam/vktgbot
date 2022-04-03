@@ -4,13 +4,13 @@ WORKDIR /code
 COPY requirements.txt ./
 RUN apk update &&\
     apk add --no-cache --virtual .build-deps \
-        build-base \
-        gcc &&\
+    build-base \
+    gcc &&\
     pip install --user -r requirements.txt &&\
     apk del .build-deps &&\
     rm -rf /root/* /tmp/*
 
-COPY bot.py config.py last_known_id.txt ./
+COPY bot.py admin.py config.yaml ./
 
 CMD [ "python", "./bot.py" ]
 
