@@ -8,3 +8,4 @@ test.*
 temp/
 *test*
 last_known_id_*
+config.yaml

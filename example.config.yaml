@@ -1,0 +1,97 @@
+# Link or ID of the Telegram channel.
+# for example:
+# tgChannel = "@durov"
+# tgChannel = -1234567890987
+# Don't forget to add bot to this channel as an administrator!
+tg_channel: '@aaaa'
+
+# Your id, need to secure admin access 
+# you can get it using this tg bot @userinfobot
+tg_id: '00000111111'
+
+# Token for your Telegram bot.
+# You can get it here: https://t.me/BotFather
+tg_bot_token: '1234567890:AAA-AaA1aaa1AAaaAa1a1AAAAA-a1aa1-Aa'
+
+# Personal token for your VK profile.
+# You can get it here:
+# https://github.com/alcortazzo/vktgbot/wiki/How-to-get-personal-access-token
+vk_token: '00a0a0ab00f0a0ab00f0a6ab0c00000b0f000f000f0a0ab0a00b000000dd00000000de0'
+
+# Part of the link (after vk.com/) to the VK channel
+# for example:
+# if link is vk.com/>>>example<<<
+# - example
+# you can provide 1 or more links separated by lines
+vk_domain:
+- aaaaa
+- bbbbb
+
+# Link to another Telegram channel if you want to receive bot log messages.
+# You can use the same bot as for the main task.
+# Don't forget to add bot to this channel as an administrator!
+tg_log_channel: '@cccc'
+
+# Token for another Telegram bot if you want to use another bot for logging.
+# Leave the value empty if you want use main bot (tg_bot_token) for logging.
+# Don't forget to add this bot to "tg_log_channel" as administrator.
+tg_bot_for_log_token: ''
+
+# Version of VK API (https://vk.com/dev/versions).
+# Used for "wall.get" method
+req_version: 5.103
+
+# Number of posts to send to Telegram.
+# Min value = 2
+# Max value = 100
+req_count: 3
+
+# Filter to apply:
+# "owner" — posts by the wall owner;
+# "others" — posts by someone else;
+# "all" — posts by the wall owner and others
+# "postponed" — timed posts (only available for calls with an access_token)
+# "suggests" — suggested posts on a community wall
+req_filter: owner
+
+# Waiting time between cycle passes.
+# (in seconds)
+time_to_sleep: 120
+
+# Waiting time between sending items
+# to bypass Telegram API limits
+# The more channels you repost,
+# the more delay you should set.
+# (in seconds)
+send_delay: 30
+
+# Do not touch
+# Bot will specify this variable itself
+_is_pinned_post: false
+
+# Set True if you want to skip sponsored posts
+skip_ads_posts: true
+
+# Set True if you want to skip posts with specified Copyright
+skip_copyrighted_post: false
+
+# Set True if Telegram is not available in your country
+proxy_enable: false
+# Login for Socks5 proxy
+proxy_login: bot
+# Password for Socks5 proxy
+proxy_pass: '12345'
+# Socks5 proxy ip
+proxy_ip: myproxy.com
+# Socks5 proxy port
+proxy_port: '1234'
+
+# Name of the folder where the log files will be stored.
+log_folder: logs
+# Log file name
+log_file: dev.log
+
+# WILL NOT WORK PROPERLY IN THIS FORK
+WHITELIST: []
+BLACKLIST: []
+# WILL NOT WORK PROPERLY IN THIS FORK

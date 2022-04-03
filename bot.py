@@ -3,10 +3,10 @@
 
 import os
 import re
+import yaml
 import sys
 import time
 import urllib
-import config
 import logging
 import requests
 import threading
@@ -15,22 +15,25 @@ import eventlet
 from telebot import TeleBot, types, apihelper
 from logging.handlers import TimedRotatingFileHandler
 
-bot = TeleBot(config.tg_bot_token)
+with open("config.yaml") as f:
+    config = yaml.load(f, Loader=yaml.FullLoader)
+
+bot = TeleBot(config["tg_bot_token"])
 send_queue = queue.Queue()
 
-if len(str(config.tg_log_channel)) > 5:
-    if config.tg_bot_for_log_token != "":
-        bot_2 = TeleBot(config.tg_bot_for_log_token)
+if len(str(config["tg_log_channel"])) > 5:
+    if config["tg_bot_for_log_token"] != "":
+        bot_2 = TeleBot(config["tg_bot_for_log_token"])
     else:
-        bot_2 = TeleBot(config.tg_bot_token)
+        bot_2 = TeleBot(config["tg_bot_token"])
     is_bot_for_log = True
 else:
     is_bot_for_log = False
 
 
-if config.proxy_enable:
+if config["proxy_enable"]:
     apihelper.proxy = {
-        "https": f"socks5://{config.proxy_login}:{config.proxy_pass}@{config.proxy_ip}:{config.proxy_port}"
+        "https": f"socks5://{config['proxy_login']}:{config['proxy_pass']}@{config['proxy_ip']}:{config['proxy_port']}"
     }
 
 
@@ -45,15 +48,15 @@ def get_data():
     timeout = eventlet.Timeout(20)
     try:
         collected_data = []
-        for domain in config.vk_domain:
+        for domain in config["vk_domain"]:
             data = requests.get(
                 "https://api.vk.com/method/wall.get",
                 params={
-                    "access_token": config.vk_token,
-                    "v": config.req_version,
+                    "access_token": config["vk_token"],
+                    "v": config["req_version"],
                     "domain": domain,
-                    "filter": config.req_filter,
-                    "count": config.req_count,
+                    "filter": config["req_filter"],
+                    "count": config["req_count"],
                 },
             )
             collected_data.append(
@@ -91,13 +94,13 @@ def parse_posts(items, last_id, domain):
             add_log("i", f"[id:{item['id']}] Post was skipped due to whitelist filter")
             continue
 
-        if config.skip_ads_posts and item["marked_as_ads"] == 1:
+        if config["skip_ads_posts"] and item["marked_as_ads"] == 1:
             add_log(
                 "i",
                 f"[id:{item['id']}] Post was skipped because it was flagged as ad",
             )
             continue
-        if config.skip_copyrighted_post and "copyright" in item:
+        if config["skip_copyrighted_post"] and "copyright" in item:
             add_log(
                 "i",
                 f"[id:{item['id']}] Post was skipped because it has copyright",
@@ -127,8 +130,8 @@ def parse_posts(items, last_id, domain):
                     data = requests.get(
                         "https://api.vk.com/method/video.get",
                         params={
-                            "access_token": config.vk_token,
-                            "v": config.req_version,
+                            "access_token": config["vk_token"],
+                            "v": config["req_version"],
                             "videos": f"{owner_id}_{video_id}_{access_key}",
                         },
                     )
@@ -213,8 +216,8 @@ def parse_posts(items, last_id, domain):
                 data = requests.get(
                     "https://api.vk.com/method/groups.getById",
                     params={
-                        "access_token": config.vk_token,
-                        "v": config.req_version,
+                        "access_token": config["vk_token"],
+                        "v": config["req_version"],
                         "group_id": owner_id,
                     },
                 )
@@ -364,7 +367,9 @@ def send_posts(post_data):
         try:
             if text_of_post:
                 if len(text_of_post) < 4096:
-                    bot.send_message(config.tg_channel, text_of_post, parse_mode="HTML")
+                    bot.send_message(
+                        config["tg_channel"], text_of_post, parse_mode="HTML"
+                    )
                 else:
                     text_parts = split_large_text(text_of_post, 4084)
                     prepared_text_parts = [
@@ -377,7 +382,7 @@ def send_posts(post_data):
                     )
 
                     for part in prepared_text_parts:
-                        bot.send_message(config.tg_channel, part, parse_mode="HTML")
+                        bot.send_message(config["tg_channel"], part, parse_mode="HTML")
                         time.sleep(0.5)
                 add_log("i", f"[id:{postid}] Text post sent")
             else:
@@ -400,7 +405,7 @@ def send_posts(post_data):
         try:
             if len(text_of_post) <= 1024:
                 bot.send_photo(
-                    config.tg_channel,
+                    config["tg_channel"],
                     photo_url_list[0],
                     text_of_post,
                     parse_mode="HTML",
@@ -410,7 +415,7 @@ def send_posts(post_data):
                 post_with_photo = f'<a href="{photo_url_list[0]}"> </a>{text_of_post}'
                 if len(post_with_photo) <= 4096:
                     bot.send_message(
-                        config.tg_channel, post_with_photo, parse_mode="HTML"
+                        config["tg_channel"], post_with_photo, parse_mode="HTML"
                     )
                 else:
                     send_text_post()
@@ -439,7 +444,7 @@ def send_posts(post_data):
                 photo_list[0].parse_mode = "HTML"
             elif len(text_of_post) > 1024:
                 send_text_post()
-            bot.send_media_group(config.tg_channel, photo_list)
+            bot.send_media_group(config["tg_channel"], photo_list)
             add_log("i", f"[id:{postid}] Text post with photos sent")
         except Exception as ex:
             add_log(
@@ -455,7 +460,7 @@ def send_posts(post_data):
         def send_doc(document):
             try:
                 with open(f"./temp/{document['title']}", "rb") as file:
-                    bot.send_document(config.tg_channel, file)
+                    bot.send_document(config["tg_channel"], file)
 
                 add_log("i", f"[id:{postid}] Document [{document['type']}] sent")
             except Exception as ex:
@@ -528,7 +533,7 @@ def check_new_post():
     """Gets list of posts from get_data(),
     compares post's id with id from the last_known_id.txt file.
     Sends list of posts to parse_posts(), writes new last id into file"""
-    if not check_admin_status(bot, config.tg_channel):
+    if not check_admin_status(bot, config["tg_channel"]):
         pass
     add_log("i", "Scanning for new posts")
     try:
@@ -553,7 +558,7 @@ def check_new_post():
                         "i",
                         f"Got some posts [id:{data[-1]['id']}-{data[1]['id']}] domain {domain}",
                     )
-                    config._is_pinned_post = True
+                    config["_is_pinned_post"] = True
                     parse_posts(data[1:], last_id, domain)
                     new_last_id = data[1]["id"]
                 else:
@@ -561,7 +566,7 @@ def check_new_post():
                         "i",
                         f"Got some posts [id:{data[-1]['id']}-{data[0]['id']}] domain {domain}",
                     )
-                    config._is_pinned_post = False
+                    config["_is_pinned_post"] = False
                     parse_posts(data, last_id, domain)
                     new_last_id = data[0]["id"]
                 if new_last_id > last_id:
@@ -643,7 +648,7 @@ def add_log(type_of_log, text):
         logger.error(text)
 
     global is_bot_for_log
-    if is_bot_for_log and check_admin_status(bot_2, config.tg_log_channel):
+    if is_bot_for_log and check_admin_status(bot_2, config["tg_log_channel"]):
         time.sleep(1)
         send_log(log_message)
 
@@ -659,11 +664,11 @@ def send_log(log_message):
         try:
             log_message_temp = (
                 f"<code>{log_message}</code>\n"
-                f"tg_channel = {config.tg_channel}\n"
-                f"vk_domain = <code>{config.vk_domain}</code>"
+                f"tg_channel = {config['tg_channel']}\n"
+                f"vk_domain = <code>{config['vk_domain']}</code>"
             )
             bot_2.send_message(
-                config.tg_log_channel, log_message_temp, parse_mode="HTML"
+                config["tg_log_channel"], log_message_temp, parse_mode="HTML"
             )
         except Exception as ex:
             global logger
@@ -679,9 +684,9 @@ def blacklist_check(text):
     Returns:
         [bool]
     """
-    if config.BLACKLIST:
+    if config["BLACKLIST"]:
         text_lower = text.lower()
-        for black_word in config.BLACKLIST:
+        for black_word in config["BLACKLIST"]:
             if black_word.lower() in text_lower:
                 return True
 
@@ -697,9 +702,9 @@ def whitelist_check(text):
     Returns:
         [bool]
     """
-    if config.WHITELIST:
+    if config["WHITELIST"]:
         text_lower = text.lower()
-        for white_word in config.WHITELIST:
+        for white_word in config["WHITELIST"]:
             if white_word.lower() in text_lower:
                 return False
         return True
@@ -727,7 +732,7 @@ def check_python_version():
 
 def generate_last_known_ids():
     """Generates last known id for vk posts"""
-    for domain in config.vk_domain:
+    for domain in config["vk_domain"]:
         if os.path.exists(f"last_known_id_{domain}.txt"):
             continue
         with open(f"last_known_id_{domain}.txt", "w") as file:
@@ -760,7 +765,7 @@ def send_loop():
                 "i",
                 f"Send queue is empty now",
             )
-        time.sleep(int(config.send_delay))
+        time.sleep(int(config["send_delay"]))
 
 
 def check_loop():
@@ -769,16 +774,16 @@ def check_loop():
         check_new_post()
         add_log(
             "i",
-            f"Script went to sleep for {config.time_to_sleep} seconds",
+            f"Script went to sleep for {config['time_to_sleep']} seconds",
         )
-        time.sleep(int(config.time_to_sleep))
+        time.sleep(int(config["time_to_sleep"]))
 
 
 if __name__ == "__main__":
     check_python_version()
 
-    if not os.path.exists(f"./{config.log_folder}"):
-        os.makedirs(f"./{config.log_folder}")
+    if not os.path.exists(f"./{config['log_folder']}"):
+        os.makedirs(f"./{config['log_folder']}")
     generate_last_known_ids()
 
     logger = logging.getLogger(__name__)
@@ -793,7 +798,7 @@ if __name__ == "__main__":
     stream_handler.setFormatter(formatter)
 
     tr_file_handler = TimedRotatingFileHandler(
-        f"./{config.log_folder}/{config.log_file}", "midnight", interval=1
+        f"./{config['log_folder']}/{config['log_file']}", "midnight", interval=1
     )
     tr_file_handler.suffix = "%Y%m%d"
     tr_file_handler.setLevel(logging.INFO)
@@ -811,4 +816,7 @@ if __name__ == "__main__":
     send_thread.start()
 
     while True:
+        with open("config.yaml") as f:
+            config = yaml.load(f, Loader=yaml.FullLoader)
+        generate_last_known_ids()
         time.sleep(5)
